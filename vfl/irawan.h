@@ -470,6 +470,6 @@ vector irawanBSDF(vector _uv; vector wi; vector wo; Weave pattern; Yarns _yarns;
     // if (hasDiffuse && !m_initialization)
     result += _yarns.kd[yarnID] * INV_PI;
 
-    return result;// * wo.z; //intensityVariation * wo.z * _yarns.ks[yarnID] ; //result;// * wo.z;
+    return result;//* wo.z; //intensityVariation * wo.z * _yarns.ks[yarnID] ; //result;// * wo.z;
 
 }

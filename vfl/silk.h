@@ -4,7 +4,7 @@
 #define WARP_KS {0.059085, 0.063159, 0.068253}
 
 
-#define WEAVE    Weave weave = { "Silk shantung", \
+#define SILK    Weave weave = { "Silk shantung", \
                  /* Tile size of the weave pattern */  \
                  6, 8, \
                  /* Uniform and forward scattering parameters */ \
@@ -25,26 +25,21 @@
 	             4, 1, 1, 5, 5, 5, \
 	             4, 1, 1, 5, 5, 5, \
 	             4, 1, 1, 5, 5, 5, \
-	             4, 1, 1, 5, 5, 5 }}; 
-
-
- 
-#define YARNS  Yarns yarns =  {                    \
-        {WARP, WARP, WEFT, WEFT, WEFT},            \
-        /* Fiber twist angle */                    \
-        {0, 0, 0, 0, 0},                          \
-        /* Maximum inclination angle */            \
-        {50, 50, 23, 23, 23},                      \
-        /* Spine curvature */                      \
-        {-0.5, -0.5, -0.3, -0.3, -0.3},            \
-        /* Width and length of the segment rectangle */ \
-        {2, 2, 4, 4, 4},                           \
-        {4, 4, 4, 4, 4},                           \
-        /* Yarn segment center in tile space */    \
-        {0.3333, 0.8333, 0.3333, -0.1667, 0.8333}, \
-        {0.25,   0.75,   0.75,    0.25,   0.25},   \
-    	/* Diffuse and specular color */           \
-    	{WARP_KD, WARP_KD, WEFT_KD, WEFT_KD, WEFT_KD}, \
-        {WARP_KS, WARP_KS, WEFT_KS, WEFT_KS, WEFT_KS}};\
-
-
+	             4, 1, 1, 5, 5, 5 }}; \
+                Yarns yarns =  {                    \
+                {WARP, WARP, WEFT, WEFT, WEFT},            \
+                /* Fiber twist angle */                    \
+                {0, 0, 0, 0, 0},                          \
+                /* Maximum inclination angle */            \
+                {50, 50, 23, 23, 23},                      \
+                /* Spine curvature */                      \
+                {-0.5, -0.5, -0.3, -0.3, -0.3},            \
+                /* Width and length of the segment rectangle */ \
+                {2, 2, 4, 4, 4},                           \
+                {4, 4, 4, 4, 4},                           \
+                /* Yarn segment center in tile space */    \
+                {0.3333, 0.8333, 0.3333, -0.1667, 0.8333}, \
+                {0.25,   0.75,   0.75,    0.25,   0.25},   \
+            	/* Diffuse and specular color */           \
+            	{WARP_KD, WARP_KD, WEFT_KD, WEFT_KD, WEFT_KD}, \
+                {WARP_KS, WARP_KS, WEFT_KS, WEFT_KS, WEFT_KS}};

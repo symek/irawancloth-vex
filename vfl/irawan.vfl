@@ -3,7 +3,10 @@
 #include "irawan.h"
 
 
-
+// This code is enterialy based on Wenzel Jacobs' Mitsuba
+// (http://www.mitsuba-renderer.org) implementation
+// of  "Appearance of Woven Cloth" by Piti Irawan, 2008: 
+// http://ecommons.library.cornell.edu/handle/1813/8331
 
 surface
 irawancloth(vector uv = 0;
@@ -25,9 +28,11 @@ irawancloth(vector uv = 0;
                     wt.x, wt.y, wt.z,
                     wn.x, wn.y, wn.z);
 
+    //
     vector wo, wi, cf;  
     wo = m * vtransform("space:world", normalize(-I));
     vector st = uv;//+noise(uv); //set(s, t, 0.0);
+
     //
     Cf = 0.0f;
     illuminance(P, nf, M_PI/2)
@@ -38,23 +43,4 @@ irawancloth(vector uv = 0;
         Cf += cf;  
     }
 
-    //Cf = irwanBSDF(uv, wi, wo, silk, Yarns, repeatU, repeatV);
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
