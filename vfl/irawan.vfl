@@ -1,0 +1,60 @@
+#include <math.h>
+#include "silk.h"
+#include "irawan.h"
+
+
+
+
+surface
+irawancloth(vector uv = 0;
+            float  repeatU = 224.0;
+            float  repeatV = 168.0)
+{
+    // 
+    WEAVE; YARNS;
+    int yarnID = 0;
+    float ml = 2.0;
+    getYarnID(yarnID, uv, weave, repeatU*ml, repeatV*ml);
+
+    //
+    vector nf = frontface(normalize(N), I);
+    vector wn = ntransform("space:world", normalize(N));
+    vector ws = vtransform("space:world", normalize(dPds));
+    vector wt = cross(wn, ws);
+    matrix3 m = set(ws.x, ws.y, ws.z,
+                    wt.x, wt.y, wt.z,
+                    wn.x, wn.y, wn.z);
+
+    vector wo, wi, cf;  
+    wo = m * vtransform("space:world", normalize(-I));
+    vector st = uv;//+noise(uv); //set(s, t, 0.0);
+    //
+    Cf = 0.0f;
+    illuminance(P, nf, M_PI/2)
+    {
+        shadow(Cl);
+        wi = m * vtransform("space:world", normalize(L));
+        cf = Cl * irawanBSDF(st, wi, wo, weave, yarns, repeatU*ml, repeatV*ml);
+        Cf += cf;  
+    }
+
+    //Cf = irwanBSDF(uv, wi, wo, silk, Yarns, repeatU, repeatV);
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
