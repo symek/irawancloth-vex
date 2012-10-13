@@ -11,12 +11,14 @@
 surface
 irawancloth(vector uv = 0;
             float  repeatU = 224.0;
-            float  repeatV = 168.0)
+            float  repeatV = 168.0;)
 {
     // 
-    WEAVE; YARNS;
+    SILK;
+   
+    //
     int yarnID = 0;
-    float ml = 2.0;
+    float ml = 8.0;
     getYarnID(yarnID, uv, weave, repeatU*ml, repeatV*ml);
 
     //
@@ -28,19 +30,26 @@ irawancloth(vector uv = 0;
                     wt.x, wt.y, wt.z,
                     wn.x, wn.y, wn.z);
 
-    //
-    vector wo, wi, cf;  
+    vector wo, wi, cf, mx, st;
     wo = m * vtransform("space:world", normalize(-I));
-    vector st = uv;//+noise(uv); //set(s, t, 0.0);
+    st = uv;//+noise(uv); //set(s, t, 0.0);
 
     //
     Cf = 0.0f;
+    mx = 0.0f;
+    int nl = arraylength(getlights());
+    int nlx = 0;
     illuminance(P, nf, M_PI/2)
     {
+        nlx++;
+        mx = max(mx, Cl);
         shadow(Cl);
-        wi = m * vtransform("space:world", normalize(L));
-        cf = Cl * irawanBSDF(st, wi, wo, weave, yarns, repeatU*ml, repeatV*ml);
-        Cf += cf;  
+        if (max(Cl) > 0.0f)
+        {
+            wi = m * vtransform("space:world", normalize(L));
+            cf = Cl * irawanBSDF(st, wi, wo, weave, yarns, repeatU*ml, repeatV*ml);
+            Cf += cf;  
+        }
     }
 
 }
