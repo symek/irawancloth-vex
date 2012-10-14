@@ -373,10 +373,9 @@ Main BSDF facility. Works in tanget space: wi is incoming light direction (Vex's
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////
 */
 
-vector irawanBSDF(vector _uv; vector wi; vector wo; Weave pattern; Yarns _yarns; float repeatU; float repeatV)
+vector irawanBSDF(int yarnID; vector _uv; vector wi; vector wo; vector nf; Weave pattern; Yarns _yarns; 
+                float repeatU; float repeatV)
 {
-    int yarnID = 0;
-    getYarnID(yarnID, _uv, pattern, repeatU, repeatV);
     vector yuv = set(_uv.x * repeatU,(1- _uv.y) * repeatV, 0.0f);
     vector uxy = set(_uv.x * pattern.tileWidth, _uv.y * pattern.tileHeight, 0.0);
     vector cen = set((uxy.x / pattern.tileWidth)  * pattern.tileWidth  + _yarns.centerU[yarnID]       * pattern.tileWidth,
@@ -468,7 +467,7 @@ vector irawanBSDF(vector _uv; vector wi; vector wo; Weave pattern; Yarns _yarns;
 
     // turn on if want to diffuse component
     // if (hasDiffuse && !m_initialization)
-    result += _yarns.kd[yarnID] * INV_PI;
+    //result += _yarns.kd[yarnID] * diffuseBRDF(normalize(N), -I);// * INV_PI;
 
     return result;//* wo.z; //intensityVariation * wo.z * _yarns.ks[yarnID] ; //result;// * wo.z;
 

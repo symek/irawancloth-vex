@@ -2,6 +2,10 @@
 #include "silk.h"
 #include "irawan.h"
 
+#pragma hint weftkd color
+#pragma hint weftks color
+#pragma hint warpkd color
+#pragma hint warpks color
 
 // This code is enterialy based on Wenzel Jacobs' Mitsuba
 // (http://www.mitsuba-renderer.org) implementation
@@ -10,15 +14,85 @@
 
 surface
 irawancloth(vector uv = 0;
-            float  repeatU = 224.0;
-            float  repeatV = 168.0;)
+            float repeatU = 224.0;
+            float repeatV = 168.0;
+            float ml      = 8.0;
+            float alpha   = 1;
+            float beta    = 1;
+            float ss      = 1;
+            float hWidth  = 1;
+            float warpArea=1;
+            float weftArea=1;
+            float dWarpUmaxOverDWarp = 1;
+            float dWarpUmaxOverDWeft = 1;
+            float dWeftUmaxOverDWarp = 1;
+            float dWeftUmaxOverDWeft = 1;
+            float fineness           = 1;
+            float period             = 1;         
+            /* Fiber twist angle */
+            vector psi               = 1;
+            /* Maximum inclination angle */
+            vector umax              = 1;
+            /* Spine curvature */
+            vector kappa             = 1;
+            /* Yarn segment center in tile space */
+            /* Diffuse and specular color */
+            vector weftkd             = {0.042223, 0.0044707, 0.0034772};
+            vector weftks             = {0.25977, 0.088627, 0.080477};
+            vector warpkd             = {0.0096037, 0.003146, 0.0029804};
+            vector warpks             = {0.059085, 0.063159, 0.068253})
 {
     // 
     SILK;
-   
+
+    //
+    weave.ss *= ss;
+    weave.alpha *= alpha;
+    weave.beta  *= beta;
+    weave.hWidth *= hWidth;
+    weave.warpArea *= warpArea;
+    weave.weftArea *= weftArea;
+    weave.dWarpUmaxOverDWeft *= dWarpUmaxOverDWarp;
+    weave.dWarpUmaxOverDWeft *= dWarpUmaxOverDWeft;
+    weave.dWeftUmaxOverDWarp *= dWeftUmaxOverDWarp;
+    weave.dWeftUmaxOverDWeft *= dWarpUmaxOverDWeft;
+    weave.fineness           *= fineness;
+    weave.period             *= period;
+
+    //
+    yarns.psi[0] *= psi.x;
+    yarns.psi[1] *= psi.x;
+    yarns.psi[2] *= psi.y;
+    yarns.psi[3] *= psi.y;
+    yarns.psi[4] *= psi.y;
+
+    yarns.umax[0] *= umax.x;
+    yarns.umax[1] *= umax.x;
+    yarns.umax[2] *= umax.x;
+    yarns.umax[3] *= umax.y;
+    yarns.umax[4] *= umax.y;
+
+    yarns.kappa[0] *= kappa.x;
+    yarns.kappa[1] *= kappa.x;
+    yarns.kappa[2] *= kappa.y;
+    yarns.kappa[3] *= kappa.y;
+    yarns.kappa[4] *= kappa.y;
+
+    yarns.kd[0]     = warpkd;
+    yarns.kd[1]     = warpkd;
+    yarns.kd[2]     = weftkd;
+    yarns.kd[3]     = weftkd;
+    yarns.kd[4]     = weftkd;
+
+    yarns.ks[0]     = warpks;
+    yarns.ks[1]     = warpks;
+    yarns.ks[2]     = weftks;
+    yarns.ks[3]     = weftks;
+    yarns.ks[4]     = weftks;
+
+
     //
     int yarnID = 0;
-    float ml = 8.0;
     getYarnID(yarnID, uv, weave, repeatU*ml, repeatV*ml);
 
     //
@@ -30,26 +104,22 @@ irawancloth(vector uv = 0;
                     wt.x, wt.y, wt.z,
                     wn.x, wn.y, wn.z);
 
+    //
     vector wo, wi, cf, mx, st;
     wo = m * vtransform("space:world", normalize(-I));
     st = uv;//+noise(uv); //set(s, t, 0.0);
 
     //
     Cf = 0.0f;
-    mx = 0.0f;
-    int nl = arraylength(getlights());
-    int nlx = 0;
     illuminance(P, nf, M_PI/2)
     {
-        nlx++;
-        mx = max(mx, Cl);
-        shadow(Cl);
-        if (max(Cl) > 0.0f)
-        {
-            wi = m * vtransform("space:world", normalize(L));
-            cf = Cl * irawanBSDF(st, wi, wo, weave, yarns, repeatU*ml, repeatV*ml);
-            Cf += cf;  
-        }
+        shadow(Cl); 
+        wi = m * vtransform("space:world", normalize(L));
+        nf = m * nf;
+        cf = Cl * irawanBSDF(yarnID, st, wi, wo, m * nf, weave, yarns, repeatU*ml, repeatV*ml);
+        cf += Cl * yarns.kd[yarnID] * diffuseBRDF(nf, -I);
+        Cf += cf;  
     }
 
 }
+
