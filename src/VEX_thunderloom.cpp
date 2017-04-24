@@ -1,6 +1,3 @@
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <unistd.h>
 #include <iostream>
 #include <map>
 #include <mutex>
@@ -103,6 +100,20 @@ const int create_shader(const char* filename, const VEXfloat uscale,
 }
 
 
+static void fill_intersect(tlIntersectionData &data, const VEXvec3 *wi, 
+    const VEXvec3 *wo, const VEXvec3 *uvw)
+{
+    data.wi_x = wi->x();
+    data.wi_y = wi->y();
+    data.wi_z = wi->z();
+    data.wi_x = wo->x();
+    data.wi_y = wo->y();
+    data.wi_z = wo->z();
+    data.uv_x = uvw->x();
+    data.uv_y = uvw->y();
+    data.context = NULL;
+}
+
 static void irawan_open(int argc, void *argv[], void *data)
 {
     int            *result    = (int*)            argv[0];
@@ -117,13 +128,13 @@ static void irawan_open(int argc, void *argv[], void *data)
 
 }
 
-static void irawan_sample(int argc, void *argv[], void *data)
+static void irawan_sample(int argc, VEX_VexOpArg argv[], void *data)
 {
-          VEXvec3  *result    = (VEXvec3*)        argv[0];
-    const VEXint   *handle    = (const VEXint*)   argv[1];
-    const VEXvec3  *wi        = (const VEXvec3*)  argv[2];
-    const VEXvec3  *wo        = (const VEXvec3*)  argv[3];
-    const VEXvec3  *uvw       = (const VEXvec3*)  argv[4];
+          VEXvec3  *result    = (VEXvec3*)        argv[0].myArg;
+    const VEXint   *handle    = (const VEXint*)   argv[1].myArg;
+    const VEXvec3  *wi        = (const VEXvec3*)  argv[2].myArg;
+    const VEXvec3  *wo        = (const VEXvec3*)  argv[3].myArg;
+    const VEXvec3  *uvw       = (const VEXvec3*)  argv[4].myArg;
     
 
     std::map<int, IrawanInstance>::iterator it;
@@ -132,19 +143,38 @@ static void irawan_sample(int argc, void *argv[], void *data)
     IrawanInstance *shader = static_cast<IrawanInstance*>(&it->second);
 
     tlIntersectionData intersection;
-    intersection.wi_x = wi->x();
-    intersection.wi_y = wi->y();
-    intersection.wi_z = wi->z();
+    fill_intersect(intersection, wi, wo, uvw);
+    tlPatternData pattern = tl_get_pattern_data(intersection, shader->parms);
+     // std::cout << "variadics num " << argc << '\n';
 
-    intersection.wi_x = wo->x();
-    intersection.wi_y = wo->y();
-    intersection.wi_z = wo->z();
+    for (int i=5; i < argc; i=i+2) 
+    {
+       if(argv[i].myType == VEX_TYPE_STRING) {
+        
+        const char* variadic =  (const char*)argv[i].myArg;
 
-    intersection.context = NULL;
+        if (std::strcmp(variadic, "diffuse") == 0) {
+          
+            tlColor col = tl_eval_diffuse(intersection, pattern, shader->parms);
+            VEXvec3 *diff = (VEXvec3*)argv[i+1].myArg;
+            diff->x() = col.r;
+            diff->y() = col.g;
+            diff->z() = col.b;
+            //i++;
+        } 
+        else if  (std::strcmp(variadic, "specular") == 0) {
+            
+             float spec = tl_eval_specular(intersection, pattern, shader->parms);
+             VEXfloat *rspec = (VEXfloat*)argv[i+1].myArg;
+             rspec[0] = spec;
+             //i++;
+        }
 
-    intersection.uv_x = uvw->x();
-    intersection.uv_y = uvw->y();
+       }
 
+    }
+
+   
     tlColor col = tl_shade(intersection, shader->parms);
     result->x() = (float)col.r;
     result->y() = (float)col.g;
@@ -170,12 +200,12 @@ newVEXOp(void *)
             irawan_open_cleanup, 
             VEX_OPTIMIZE_2);
 
-    new VEX_VexOp("irawan_sample@&VIVVV", /*vector color = irawan_sample(handle, wo, wi, uv)*/ 
+    new VEX_VexOp("irawan_sample@&VIVVV+", /*vector color = irawan_sample(handle, wo, wi, uv)*/ 
             irawan_sample, 
             VEX_SURFACE_CONTEXT, 
             NULL, /*irwan_open_init,*/
             NULL, /*irwan_open_cleanup,*/ 
-            VEX_OPTIMIZE_2);
+            VEX_OPTIMIZE_1);
 
 
 }
