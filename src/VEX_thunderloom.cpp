@@ -5,6 +5,8 @@
 #include <map>
 #include <mutex>
 #include <cstring>
+#include <functional>
+#include <memory>
 
 #include <UT/UT_DSOVersion.h>
 #include <UT/UT_Thread.h>
@@ -18,42 +20,86 @@
 namespace VEX_THUNDERLOOM
 {
 
+// template<typename T, typename... Args>
+// std::unique_ptr<T> make_unique(Args&&... args)
+// {
+//     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+// }
 
 struct IrawanInstance
 {
     tlWeaveParameters  *parms;
+   // std::unique_ptr<tlIntersectionData> \
+
     tlIntersectionData *intersection;
-    int                 index;
+    int handle;
 };
 
-static std::mutex mtx;
+static std::mutex irawan_mutex;
 static std::map<int, IrawanInstance> IrawanStore;
 
 static void * irawan_open_init()
 {
-    std::lock_guard<std::mutex> guard(mtx);
-
-    const int index = IrawanStore.size();
-    IrawanInstance cloth_shader;
-    cloth_shader.parms = NULL;
-    cloth_shader.intersection = NULL;
-    cloth_shader.index = index;   
-
-    IrawanStore.insert(std::pair<int, IrawanInstance>(index, cloth_shader));
-
-    std::cout << "irawan inited: " << index << "\n";
-    return (void*) &cloth_shader;
+   
 }
 
 static void irawan_open_cleanup(void *data)
 {
-    // tl_free_weave_parameters((tlWeaveParameters *)data);  
-     std::cout << "IrawanStore.size(): " << IrawanStore.size() << "\n"; 
+  
 
-     // for (std::map<int, IrawanInstance>::iterator it=IrawanStore.begin(); it!=IrawanStore.end(); ++it){
-        // std::cout << it->second.parms->uscale << '\n';
-     // }
+}
 
+
+const int irawan_hash(const char* filename, const VEXfloat uscale, 
+                             const VEXfloat vscale, const VEXfloat intensity, 
+                             const VEXint realuv)
+{
+    std::string hashbase(filename);
+    hashbase += std::to_string(uscale);
+    hashbase += std::to_string(vscale);
+    hashbase += std::to_string(intensity);
+    hashbase += std::to_string(realuv);
+    std::hash<std::string> hasher;
+    int hash = hasher(hashbase);
+    return hash;
+}
+
+const int create_shader(const char* filename, const VEXfloat uscale, 
+                        const VEXfloat vscale, const VEXfloat intensity, 
+                        const VEXint realuv)
+{
+    std::lock_guard<std::mutex> guard(irawan_mutex);
+
+    const int hash = irawan_hash(filename, uscale, vscale, intensity, realuv);
+
+    std::map<int, IrawanInstance>::const_iterator it;
+
+    it = IrawanStore.find(hash);
+    if (it == IrawanStore.end()) {
+        const char *errors = 0;
+        IrawanInstance shader;
+        shader.handle = hash;
+        shader.parms  = NULL;   
+        shader.parms  = tl_weave_pattern_from_file(filename, &errors);
+        if (shader.parms == NULL) {
+            std::cerr << errors << '\n';
+            return 0;
+        }
+
+        shader.parms->uscale = uscale; 
+        shader.parms->vscale = vscale;
+        shader.parms->realworld_uv = realuv;
+        shader.parms->intensity_fineness = intensity;
+
+        tl_prepare(shader.parms);
+        //tlIntersectionData = intersection;
+        // shader.intersection = &tlIntersectionData(); //make_unique<tlIntersectionData>();
+        IrawanStore.insert(std::pair<int, IrawanInstance>(hash, shader));
+
+        return hash;
+    } else {
+        return it->first;
+    }
 }
 
 
@@ -66,27 +112,44 @@ static void irawan_open(int argc, void *argv[], void *data)
     const VEXfloat *intensity = (const VEXfloat*) argv[4];
     const VEXint   *realuv    = (const VEXint*)   argv[5];
 
-    IrawanInstance *shader = (IrawanInstance*)data;
-    const char *errors = 0;
+    const int handle = create_shader(wifile, *uscale, *vscale, *intensity, *realuv);
+    result[0] = handle; 
 
-    if (!shader->parms) {
-        shader->parms = tl_weave_pattern_from_file(wifile, &errors);
-        if (!shader->parms) {
-            std::cerr << "Can't read wif file: " << wifile << "\n";
-            const VEXint err = -1;
-            std::memcpy(result, &err, sizeof(VEXint));
-        } else { 
-            shader->parms->uscale = *uscale;
-            shader->parms->vscale = *vscale;
-            shader->parms->intensity_fineness  = *intensity;
-            shader->parms->realworld_uv        = *realuv;
-            tl_prepare(shader->parms);
-        }
-    } else {
-         std::memcpy(result, &(shader->index), sizeof(int));
-        }
+}
 
-    std::cout << shader->parms->uscale << "\n";
+static void irawan_sample(int argc, void *argv[], void *data)
+{
+          VEXvec3  *result    = (VEXvec3*)        argv[0];
+    const VEXint   *handle    = (const VEXint*)   argv[1];
+    const VEXvec3  *wi        = (const VEXvec3*)  argv[2];
+    const VEXvec3  *wo        = (const VEXvec3*)  argv[3];
+    const VEXvec3  *uvw       = (const VEXvec3*)  argv[4];
+    
+
+    std::map<int, IrawanInstance>::iterator it;
+    it = IrawanStore.find(*handle);
+    UT_ASSERT(it != IrawanStore.end());
+    IrawanInstance *shader = static_cast<IrawanInstance*>(&it->second);
+
+    tlIntersectionData intersection;
+    intersection.wi_x = wi->x();
+    intersection.wi_y = wi->y();
+    intersection.wi_z = wi->z();
+
+    intersection.wi_x = wo->x();
+    intersection.wi_y = wo->y();
+    intersection.wi_z = wo->z();
+
+    intersection.context = NULL;
+
+    intersection.uv_x = uvw->x();
+    intersection.uv_y = uvw->y();
+
+    tlColor col = tl_shade(intersection, shader->parms);
+    result->x() = (float)col.r;
+    result->y() = (float)col.g;
+    result->z() = (float)col.b;
+
 }
 
 
@@ -103,87 +166,16 @@ newVEXOp(void *)
     new VEX_VexOp("irawan_open@&ISFFFI", /*int handle = irawan_open(filename, uscale, vscale, intensity, realuv)*/ 
             irawan_open, 
             VEX_SURFACE_CONTEXT, 
-            irawan_open_init,
+            NULL, /*irawan_open_init,*/
             irawan_open_cleanup, 
             VEX_OPTIMIZE_2);
 
-    // new VEX_VexOp("irawan_sample@&VVVV", /*vector color = irawan_open(wo, wi, uv)*/ 
-    //         irwan_open, 
-    //         VEX_SURFACE_CONTEXT, 
-    //         irwan_open_init,
-    //         irwan_open_cleanup, 
-    //         VEX_OPTIMIZE_2);
+    new VEX_VexOp("irawan_sample@&VIVVV", /*vector color = irawan_sample(handle, wo, wi, uv)*/ 
+            irawan_sample, 
+            VEX_SURFACE_CONTEXT, 
+            NULL, /*irwan_open_init,*/
+            NULL, /*irwan_open_cleanup,*/ 
+            VEX_OPTIMIZE_2);
 
 
 }
-
-
-
-    // const char *errors = 0;
-    // tlWeaveParameters *params = NULL;
-    // params =  tl_weave_pattern_from_file("/home/symek/work/ThunderLoom/src/wif/data/2229.wif", &errors);
-    // if (!params)
-    //     return NULL;
-    // params->uscale = 1.f;
-    // params->vscale = 1.f;
-    // params->intensity_fineness  =  1.f;
-    // params->realworld_uv        = 1;
-    // tl_prepare(params);
-   
-
-
-    // const VEXvec3  *wi        = (const VEXvec3*)  argv[6];
-    // const VEXvec3  *wo        = (const VEXvec3*)  argv[7];
-    // const VEXfloat *u         = (const VEXfloat*) argv[8];
-    // const VEXfloat *v         = (const VEXfloat*) argv[9];
-
-    // tlWeaveParameters *params = (tlWeaveParameters *)data;
-    // if (!params) {
-    //     params = tl_weave_pattern_from_file(wifile, &errors);
-
-    //     if (!params) {
-    //         std::cerr << "Can't read wif file" << wifile << "\n";
-    //         result->x() = 1.f;
-    //         result->y() = 0.f;
-    //         result->z() = 0.f;
-    //     } else { 
-    //         params->uscale = *uscale;
-    //         params->vscale = *vscale;
-    //         params->intensity_fineness  = *intensity;
-    //         params->realworld_uv        = *realuv;
-    //         tl_prepare(params);
-    //     }
-    // }
-    // params = tl_weave_pattern_from_file(wifile, &errors);
-    // if (params) {
-
-
-    //     // params->uscale = *uscale;
-    //     // params->vscale = *vscale;
-    //     // params->intensity_fineness  = *intensity;
-    //     // params->realworld_uv        = *realuv;
-    //     // tl_prepare(params);
-
-    //     tlIntersectionData intersection;
-    //     intersection.wi_x = wi->x();
-    //     intersection.wi_y = wi->y();
-    //     intersection.wi_z = wi->z();
-
-    //     intersection.wi_x = wo->x();
-    //     intersection.wi_y = wo->y();
-    //     intersection.wi_z = wo->z();
-
-    //     intersection.context = NULL;
-
-    //     intersection.uv_y = (float)*u;
-    //     intersection.uv_x = (float)*v;
-
-    //     tlColor col = tl_shade(intersection, params);
-    //     result->x() = (float)col.r;
-    //     result->y() = (float)col.g;
-    //     result->z() = (float)col.b;
-    // } else {
-    //     result->x() = 1.f;
-    //     result->y() = 0.5f;
-    //     result->z() = 0.2f;
-    // }
