@@ -100,7 +100,7 @@ const int create_shader(const char* filename, const VEXfloat uscale,
 }
 
 
-static void fill_intersect(tlIntersectionData &data, const VEXvec3 *wi, 
+inline void fill_intersect(tlIntersectionData &data, const VEXvec3 *wi, 
     const VEXvec3 *wo, const VEXvec3 *uvw)
 {
     data.wi_x = wi->x();
@@ -152,37 +152,48 @@ static void irawan_sample(int argc, void *argv[], void *data)
 
 }
 
-static void irawan_sample(int argc, void *argv[], void *data)
+static void irawan_sample2(int argc, void *argv[], void *data)
 {
 
     const VEXint   *handle = (const VEXint* ) argv[0];
     const VEXvec3  *wi     = (const VEXvec3*) argv[1];
     const VEXvec3  *wo     = (const VEXvec3*) argv[2];
     const VEXvec3  *uvw    = (const VEXvec3*) argv[3];
-          VEXvec3  *diff   = (const VEXvec3*) argv[4];
-          VEXfloat *spec   = (const VEXfloat*)argv[5];
-          VEXvec3  *N      = (const VEXvec3*) argv[6];
-          VEXfloat *hit    = (const VEXfloat*)argv[7];
+          VEXvec3  *diff   = (VEXvec3*)       argv[4];
+          VEXfloat *spec   = (VEXfloat*)      argv[5];
+          VEXvec3  *N      = (VEXvec3*)       argv[6];
+          VEXfloat *hit    = (VEXfloat*)      argv[7];
 
     std::map<int, IrawanInstance>::iterator it;
     it = IrawanStore.find(*handle);
     UT_ASSERT(it != IrawanStore.end());
-    IrawanInstance *shader = static_cast<IrawanInstance*>(&it->second);
+
+    const IrawanInstance *shader = \
+        static_cast<const IrawanInstance*>(&it->second);
 
     tlIntersectionData intersection;
     fill_intersect(intersection, wi, wo, uvw);
 
-    tlPatternData pattern = tl_get_pattern_data(intersection, shader->parms);
+    const tlPatternData pattern = \
+        tl_get_pattern_data(intersection, shader->parms);
+    N->x() = static_cast<VEXfloat>(pattern.normal_x);
+    N->y() = static_cast<VEXfloat>(pattern.normal_y);
+    N->z() = static_cast<VEXfloat>(pattern.normal_z);
 
-    tlColor col = tl_eval_diffuse(intersection, pattern, shader->parms);
-    diff->x() = col.r; diff->y() = col.g; diff->z() = col.b;
-    spec[0]   = tl_eval_specular(intersection, pattern, shader->parms);
-       
+    // Diffuse
+    const tlColor eval_diff = \
+        tl_eval_diffuse(intersection, pattern, shader->parms);
+    diff->x() += static_cast<VEXfloat>(eval_diff.r); 
+    diff->y() += static_cast<VEXfloat>(eval_diff.g); 
+    diff->z() += static_cast<VEXfloat>(eval_diff.b);
+    // Specular  
+    const VEXfloat eval_spec = \
+        tl_eval_specular(intersection, pattern, shader->parms);
+    spec[0] += eval_spec;
 
-    }
-
-}
-   
+    // hit
+    const VEXfloat eval_hit = static_cast<VEXfloat>(pattern.yarn_hit*1.0f);
+    hit[0] = eval_hit;
 
 }
 
@@ -212,7 +223,7 @@ newVEXOp(void *)
             VEX_OPTIMIZE_2);
 
       new VEX_VexOp("irawan_sample@IVVV&V&F&V&F", /*void irawan_sample(handle, wo, wi, uv, &diff, &spec, &N, &hit)*/ 
-            irawan_sample, 
+            irawan_sample2, 
             VEX_SURFACE_CONTEXT, 
             NULL, /*irwan_open_init,*/
             NULL, /*irwan_open_cleanup,*/ 
